@@ -24,11 +24,19 @@ def submit_survey():
     payload = request.get_json(silent=True)
     if payload is None:
         return jsonify({"error": "invalid_json", "detail": "Body must be application/json"}), 400
-
     try:
         submission = SurveySubmission(**payload)
     except ValidationError as ve:
         return jsonify({"error": "validation_error", "detail": ve.errors()}), 422
+
+    if not submission.submission_id:
+        email_norm = submission.email.lower().strip()
+        hour_stamp = datetime.now(timezone.utc).strftime("%Y%m%d%H")
+        raw = f"{email_norm}{hour_stamp}"
+        submission_id = sha256(raw.encode()).hexdigest()
+        submission.submission_id = submission_id
+    else:
+        submission_id = submission.submission_id
 
     record = StoredSurveyRecord(
         **submission.dict(),
